@@ -25,6 +25,10 @@
 #define VIRTIO0     0x10001000
 #define VIRTIO0_IRQ 1
 
+// PCI ECAM configuration space for bus 0
+#define PCI_ECAM      0x30000000L
+#define PCI_ECAM_SIZE 0x00100000L
+
 // core-local interrupt controller (CLINT)
 #define CLINT_BASE  0x02000000L
 #define CLINT(hart) (CLINT_BASE + (hart) * 4)
