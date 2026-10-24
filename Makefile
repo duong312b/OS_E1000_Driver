@@ -153,6 +153,7 @@ UPROGS=\
 	$U/_forphan\
 	$U/_dorphan\
 	$U/_sync\
+	$U/_nettests\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
@@ -182,6 +183,11 @@ QEMUOPTS += -global virtio-mmio.force-legacy=false
 QEMUOPTS += -drive file=fs.img,if=none,format=raw,id=x0
 QEMUOPTS += -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
 
+FWDPORT ?= 26000
+QEMUOPTS += -netdev user,id=net0,hostfwd=udp::$(FWDPORT)-:2000
+QEMUOPTS += -object filter-dump,id=f0,netdev=net0,file=packets.pcap
+QEMUOPTS += -device e1000,netdev=net0,bus=pcie.0
+
 qemu: check-qemu-version $K/kernel fs.img
 	$(QEMU) $(QEMUOPTS)
 
@@ -205,3 +211,15 @@ check-qemu-version:
 .PHONY: fmt
 fmt:
 	clang-format -i $(wildcard kernel/*.[ch] user/*.[ch] mkfs/*.c)
+
+# make test            -> chạy CPUS=1 và CPUS=4
+# make test CPUS=4     -> chỉ CPUS=4
+# make test REPEAT=10  -> lặp 10 lần mỗi cấu hình
+TEST_CPUS ?= $(if $(filter command line,$(origin CPUS)),$(CPUS),1 4)
+REPEAT ?= 1
+ 
+test: $K/kernel fs.img
+	@CPUS_LIST="$(TEST_CPUS)" REPEAT=$(REPEAT) FWDPORT=$(FWDPORT) tests/run_all.sh
+ 
+.PHONY: test
+

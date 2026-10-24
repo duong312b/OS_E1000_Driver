@@ -1,0 +1,16 @@
+make[1]: Entering directory '/home/nguyenhaiduong20233357/OS_E1000_Driver'
+qemu-system-riscv64 -machine virt -bios none -kernel kernel/kernel -m 128M -smp 1 -nographic -global virtio-mmio.force-legacy=false -drive file=fs.img,if=none,format=raw,id=x0 -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0 -netdev user,id=net0,hostfwd=udp::26000-:2000 -object filter-dump,id=f0,netdev=net0,file=packets.pcap -device e1000,netdev=net0,bus=pcie.0
+
+xv6 kernel is booting
+
+PCI: scanning bus 0
+PCI: bus 0 dev 0 func 0 vendor 0x1b36 device 0x8
+PCI: bus 0 dev 1 func 0 vendor 0x8086 device 0x100e
+PCI: E1000 detected!
+init: starting sh
+$ nettests
+PASS: harness_sanity
+PASS: fork_wait
+NETTESTS: 2 passed, 0 failed
+NETTESTS DONE
+$ qemu-system-riscv64: terminating on signal 15 from pid 15866 (bash)
