@@ -21,6 +21,9 @@ main()
     kvminithart();      // turn on paging
     pci_init();
     e1000_test_mmio();
+   e1000_read_mac();
+   e1000_init_rings();
+   e1000_configure_rings(); 
     procinit();         // process table
     trapinit();         // trap vectors
     trapinithart();     // install kernel trap vector
