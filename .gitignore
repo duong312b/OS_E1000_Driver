@@ -1,0 +1,14 @@
+
+# Build outputs
+*.o
+*.d
+*.asm
+*.sym
+fs.img
+kernel/kernel
+mkfs/mkfs
+user/_*
+tests/logs/
+*.pcap
+user/usys.S
+.gdbinit
