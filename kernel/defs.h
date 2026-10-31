@@ -184,6 +184,8 @@ void            virtio_disk_intr(void);
 
 // pci.c
 void            pci_init(void);
+// e1000.c
+void e1000_test_mmio(void);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x) / sizeof((x)[0]))

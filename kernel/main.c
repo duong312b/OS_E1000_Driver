@@ -20,6 +20,7 @@ main()
     kvminit();          // create kernel page table
     kvminithart();      // turn on paging
     pci_init();
+    e1000_test_mmio();
     procinit();         // process table
     trapinit();         // trap vectors
     trapinithart();     // install kernel trap vector

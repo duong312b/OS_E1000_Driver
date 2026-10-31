@@ -35,6 +35,10 @@ kvmmake(void)
 // PCI ECAM configuration space for bus 0
 kvmmap(kpgtbl, PCI_ECAM, PCI_ECAM, PCI_ECAM_SIZE,
        PTE_R | PTE_W);
+// E1000 MMIO: 128 KB
+kvmmap(kpgtbl, 0x40000000L,
+       0x40000000L, 0x20000L,
+       PTE_R | PTE_W);
 
   // PLIC
   kvmmap(kpgtbl, PLIC, PLIC, 0x4000000, PTE_R | PTE_W);
