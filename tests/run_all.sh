@@ -1,4 +1,3 @@
-#!/usr/bin/env bash
 # Chạy toàn bộ test: (1) test trong xv6 (user/nettests), (2) test phía host (tests/host/*.sh|*.py).
 # Biến môi trường:
 #   CPUS_LIST  danh sách số CPU cần thử        (mặc định "1 4")
@@ -21,6 +20,16 @@ total_runs=0; bad_runs=0
 
 kill_group() { kill -- -"$1" 2>/dev/null; sleep 1; kill -9 -- -"$1" 2>/dev/null; pkill -f qemu-system-riscv64 2>/dev/null; true; }
 
+live_bad=0
+run_live_host_tests() {
+  local f
+  for f in tests/host/live_*.py; do
+    [ -e "$f" ] || continue
+    echo "== host (live): $f"
+    FWDPORT=$FWDPORT PCAP=packets.pcap python3 "$f" || live_bad=$((live_bad+1))
+  done
+}
+
 run_xv6_tests() {   # $1 = cpus, $2 = lần thứ mấy
   local cpus=$1 iter=$2
   local log="$LOGDIR/xv6-cpus${cpus}-run${iter}.log"
@@ -38,6 +47,14 @@ run_xv6_tests() {   # $1 = cpus, $2 = lần thứ mấy
   " > "$log" 2>&1 &
   local pid=$!
 
+  # đợi xv6 boot xong rồi chạy test host khi QEMU còn sống
+  local t=0
+  until grep -q 'init: starting sh' "$log" 2>/dev/null; do
+    sleep 0.2; t=$((t+1)); [ $t -gt $((BOOT_TIMEOUT*5)) ] && break
+  done
+  live_bad=0
+  run_live_host_tests
+
   local waited=0 limit=$(( (BOOT_TIMEOUT + TEST_TIMEOUT) * 2 ))
   while ! grep -q 'NETTESTS DONE' "$log" 2>/dev/null; do
     sleep 0.5; waited=$((waited+1))
@@ -53,7 +70,9 @@ run_xv6_tests() {   # $1 = cpus, $2 = lần thứ mấy
   echo "  -> CPUS=$cpus run=$iter: pass=$npass fail=$nfail done=$done_ok (log: $log)"
 
   total_runs=$((total_runs+1))
-  if [ "$nfail" -ne 0 ] || [ "$done_ok" -ne 1 ]; then bad_runs=$((bad_runs+1)); return 1; fi
+  if [ "$nfail" -ne 0 ] || [ "$done_ok" -ne 1 ] || [ "$live_bad" -ne 0 ]; then
+    bad_runs=$((bad_runs+1)); return 1
+  fi
   return 0
 }
 
