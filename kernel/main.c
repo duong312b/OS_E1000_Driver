@@ -3,6 +3,7 @@
 #include "memlayout.h"
 #include "riscv.h"
 #include "defs.h"
+#include "net.h"
 
 volatile static int started = 0;
 
@@ -24,6 +25,7 @@ main()
    e1000_read_mac();
    e1000_init_rings();
    e1000_configure_rings(); 
+  week2_arp_send_request(MAKE_IP_ADDR(10, 0, 2, 2));
     procinit();         // process table
     trapinit();         // trap vectors
     trapinithart();     // install kernel trap vector

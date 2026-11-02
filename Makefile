@@ -9,6 +9,7 @@ OBJS = \
   $K/uart.o \
   $K/kalloc.o \
   $K/net.o \
+  $K/week2_arp.o \
   $K/spinlock.o \
   $K/string.o \
   $K/main.o \
