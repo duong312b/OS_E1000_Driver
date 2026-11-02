@@ -1,17 +1,3 @@
-// net.h - Khuon header giao thuc va tien ich byte-order / checksum.
-// Vai B (Protocol): Ethernet, ARP, IPv4, ICMP (+ UDP header de vai C dung chung).
-//
-// QUY UOC BAT BIEN (invariant) - ca nhom phai theo:
-//  1. Moi truong nhieu byte trong struct header luu o NETWORK ORDER (big-endian),
-//     dung nhu tren day. RISC-V la little-endian => doc/ghi phai qua
-//     ntohs/ntohl/htons/htonl. Khong so sanh truc tiep voi hang so host-order.
-//  2. Cac struct deu __attribute__((packed)). Header IP nam o offset 14 trong khung
-//     Ethernet nen truong 32-bit bi lech alignment; KHONG lay dia chi (&) cua mot
-//     truong packed roi gan vao con tro uint16*/uint32* (se lech alignment).
-//  3. Cac hang so ETHTYPE_*, IPPROTO_*, ARP_OP_* duoi day o HOST order;
-//     phai htons() khi ghi vao header.
-//  4. Dia chi IPv4 trong header (src/dst/sip/tip) o network order.
-//     MAKE_IP_ADDR(a,b,c,d) tra ve gia tri HOST order; htonl() khi ghi vao header.
 #ifndef NET_H
 #define NET_H
 
@@ -34,9 +20,9 @@ static inline uint32 bswap32(uint32 x) {
 // ---- Ethernet II (14 byte) ----
 #define ETHADDR_LEN   6
 #define ETH_HDR_LEN   14
-#define ETH_MTU       1500            // payload toi da
-#define ETH_MAX_FRAME (ETH_HDR_LEN + ETH_MTU)  // 1514, khong tinh FCS
-#define ETH_MIN_FRAME 60              // khong tinh FCS; ngan hon phai padding
+#define ETH_MTU       1500            
+#define ETH_MAX_FRAME (ETH_HDR_LEN + ETH_MTU)  
+#define ETH_MIN_FRAME 60             
 
 #define ETHTYPE_IP  0x0800
 #define ETHTYPE_ARP 0x0806
@@ -116,16 +102,32 @@ struct udp {
 } NET_PACKED;
 
 // ---- Checksum Internet (RFC 1071) ----
-// in_cksum(): tra ve gia tri CHUAN BI SAN de gan thang vao truong sum cua header
-//   (da o network order):   ip->sum = 0; ip->sum = in_cksum(ip, hlen);
-// Kiem tra goi den: tinh tren ca header gom ca truong sum; hop le <=> ket qua == 0.
 uint16 in_cksum(const void *buf, int len);
 
-// Dang tung phan, de tinh checksum nhieu vung nho (vi du UDP pseudo-header + UDP).
-//   uint32 s = cksum_partial(0, &pseudo, sizeof(pseudo));
-//   s = cksum_partial(s, udp_hdr_va_data, udplen);
-//   udp->sum = cksum_finish(s);
 uint32 cksum_partial(uint32 sum, const void *buf, int len);
 uint16 cksum_finish(uint32 sum);   // gap carry, bu 1, tra ve network order
+
+// ---- Tuan 2: phan loai khung Ethernet nhan duoc, dung va gui ARP request ----
+
+#define WEEK2_ETH_DROP_SHORT        0  
+#define WEEK2_ETH_DROP_NOT_FOR_US   1   
+#define WEEK2_ETH_DROP_UNSUPPORTED  2   
+#define WEEK2_ETH_TO_ARP            3   
+#define WEEK2_ETH_TO_IP             4   
+
+
+int week2_eth_classify(const uint8 *buf, int len, const uint8 *mymac);
+int net_rx(const uint8 *buf, int len);
+int week2_arp_build_request(uint8 *buf, int buflen, const uint8 *srcmac,
+                            uint32 srcip, uint32 dstip);
+extern uint8  week2_my_mac[ETHADDR_LEN];
+extern uint32 week2_my_ip;
+
+extern uint32 week2_rx_arp;
+extern uint32 week2_rx_ip;
+extern uint32 week2_rx_drop;
+
+int week2_net_tx(uint8 *buf, int len);       
+int week2_arp_send_request(uint32 dstip);   
 
 #endif
