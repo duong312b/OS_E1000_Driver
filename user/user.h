@@ -48,3 +48,12 @@ void printf(const char *, ...) __attribute__((format(printf, 1, 2)));
 // umalloc.c
 void *malloc(uint);
 void free(void *);
+
+// 
+#ifdef HAVE_SOCKET
+int socket(void);
+int bind(int fd, int port);
+int sendto(int fd, const void *buf, int n, uint32 ip, int port);
+int recvfrom(int fd, void *buf, int n, uint32 *ip, int *port);
+int netinfo(void *st);
+#endif

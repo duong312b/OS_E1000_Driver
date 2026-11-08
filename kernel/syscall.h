@@ -21,3 +21,8 @@
 #define SYS_mkdir  20
 #define SYS_close  21
 #define SYS_sync   22
+#define SYS_socket   23
+#define SYS_bind     24
+#define SYS_sendto   25
+#define SYS_recvfrom 26
+#define SYS_netinfo  27

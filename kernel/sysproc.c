@@ -110,3 +110,10 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+// khai bao tam thoi
+uint64 sys_socket(void) { return -1; }
+uint64 sys_bind(void) { return -1; }
+uint64 sys_sendto(void) { return -1; }
+uint64 sys_recvfrom(void) { return -1; }
+uint64 sys_netinfo(void) { return -1; }

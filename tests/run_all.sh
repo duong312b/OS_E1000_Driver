@@ -5,6 +5,8 @@
 #   BOOT_TIMEOUT / TEST_TIMEOUT  giây          (mặc định 60 / 120)
 #   FWDPORT    cổng host chuyển vào xv6        (mặc định 26000)
 # Mã thoát: 0 nếu mọi lần chạy đều không có FAIL và nettests chạy tới "NETTESTS DONE".
+MODE=${MODE:-all}
+
 set -u
 cd "$(dirname "$0")/.."
 
@@ -76,8 +78,22 @@ run_xv6_tests() {   # $1 = cpus, $2 = lần thứ mấy
   return 0
 }
 
-run_host_tests() {  # test phía host: tests/host/test_*.sh hoặc test_*.py (tuần 2+ sẽ có)
+# run_host_tests() {  # test phía host: tests/host/test_*.py 
+#   local f rc=0
+#   for f in tests/host/test_*.sh tests/host/test_*.py; do
+#     [ -e "$f" ] || continue
+#     echo "== host: $f"
+#     case "$f" in *.py) python3 "$f" ;; *) bash "$f" ;; esac || rc=1
+#   done
+#   return $rc
+# }
+
+run_host_tests() {  # test phía host: C (tests/host/Makefile) + tests/host/test_*.py
   local f rc=0
+  if [ -f tests/host/Makefile ]; then
+    echo "== host (C): make -C tests/host test"
+    make -C tests/host test || rc=1
+  fi
   for f in tests/host/test_*.sh tests/host/test_*.py; do
     [ -e "$f" ] || continue
     echo "== host: $f"
@@ -86,12 +102,25 @@ run_host_tests() {  # test phía host: tests/host/test_*.sh hoặc test_*.py (tu
   return $rc
 }
 
-for cpus in $CPUS_LIST; do
-  for i in $(seq 1 "$REPEAT"); do
-    echo "=== xv6 tests: CPUS=$cpus, lần $i/$REPEAT ==="
-    run_xv6_tests "$cpus" "$i"
+# for cpus in $CPUS_LIST; do
+#   for i in $(seq 1 "$REPEAT"); do
+#     echo "=== xv6 tests: CPUS=$cpus, lần $i/$REPEAT ==="
+#     run_xv6_tests "$cpus" "$i"
+#   done
+# done
+
+if [ "$MODE" != host ]; then
+  for cpus in $CPUS_LIST; do
+    for i in $(seq 1 "$REPEAT"); do
+      echo "=== xv6 tests: CPUS=$cpus, lần $i/$REPEAT ==="
+      run_xv6_tests "$cpus" "$i"
+    done
   done
-done
+fi
+
+if [ "$MODE" != xv6 ]; then
+  run_host_tests || bad_runs=$((bad_runs+1))
+fi
 
 run_host_tests || bad_runs=$((bad_runs+1))
 

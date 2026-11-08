@@ -43,3 +43,8 @@ entry("sbrk");
 entry("pause");
 entry("uptime");
 entry("sync");
+entry("socket");
+entry("bind");
+entry("sendto");
+entry("recvfrom");
+entry("netinfo");

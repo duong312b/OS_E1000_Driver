@@ -95,6 +95,10 @@ endif
 
 LDFLAGS = -z max-page-size=4096
 
+ifdef HAVE_SOCKET
+CFLAGS += -DHAVE_SOCKET
+endif
+
 $K/kernel: $(OBJS) $K/kernel.ld
 	$(LD) $(LDFLAGS) -T $K/kernel.ld -o $K/kernel $(OBJS) 
 	$(OBJDUMP) -S $K/kernel > $K/kernel.asm
@@ -169,6 +173,7 @@ clean:
 	mkfs/mkfs .gdbinit \
         $U/usys.S \
 	$(UPROGS)
+	-$(MAKE) --no-print-directory -C $(HOSTDIR) clean 	# don dep test/host 
 
 # try to generate a unique GDB port
 GDBPORT = $(shell expr `id -u` % 5000 + 25000)
@@ -214,14 +219,32 @@ check-qemu-version:
 fmt:
 	clang-format -i $(wildcard kernel/*.[ch] user/*.[ch] mkfs/*.c)
 
-# make test            -> chạy CPUS=1 và CPUS=4
-# make test CPUS=4     -> chỉ CPUS=4
-# make test REPEAT=10  -> lặp 10 lần mỗi cấu hình
+# ---------------- TEST ----------------
+# make test		-> xv6 (CPUS=1 và 4) + host
+# make test CPUS=4		-> chi CPUS=4 (phan xv6)
+# make test REPEAT=10		-> lap 10 lan moi cau hinh
+# make test-xv6		-> test trong xv6 (qemu)
+# make test-host		-> test phia host (khong can qemu/fs.img)
+# make test-host-NAME		-> build + chay 1 test C, vd: make test-host-week2_eth_arp_test
 TEST_CPUS ?= $(if $(filter command line,$(origin CPUS)),$(CPUS),1 4)
 REPEAT ?= 1
- 
+HOSTDIR = tests/host
+
 test: $K/kernel fs.img
-	@CPUS_LIST="$(TEST_CPUS)" REPEAT=$(REPEAT) FWDPORT=$(FWDPORT) tests/run_all.sh
- 
-.PHONY: test
+	@MODE=all CPUS_LIST="$(TEST_CPUS)" REPEAT=$(REPEAT) FWDPORT=$(FWDPORT) tests/run_all.sh
+
+test-xv6: $K/kernel fs.img
+	@MODE=xv6 CPUS_LIST="$(TEST_CPUS)" REPEAT=$(REPEAT) FWDPORT=$(FWDPORT) tests/run_all.sh
+
+test-host:
+	@MODE=host tests/run_all.sh
+
+test-host-%:
+	@$(MAKE) --no-print-directory -C $(HOSTDIR) $*
+	@cd $(HOSTDIR) && ./$*
+
+test-clean:
+	@$(MAKE) --no-print-directory -C $(HOSTDIR) clean
+
+.PHONY: test test-xv6 test-host test-clean
 
