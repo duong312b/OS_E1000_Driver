@@ -86,14 +86,19 @@ week2_eth_classify(const uint8 *buf, int len, const uint8 *mymac)
   return WEEK2_ETH_DROP_UNSUPPORTED;
 }
 
+void (*week3_arp_hook)(const uint8 *buf, int len);
+
 int
 net_rx(const uint8 *buf, int len)
 {
   int verdict;
 
   verdict = week2_eth_classify(buf, len, week2_my_mac);
-  if (verdict == WEEK2_ETH_TO_ARP)
+  if (verdict == WEEK2_ETH_TO_ARP) {
     __sync_fetch_and_add(&week2_rx_arp, 1);
+    if (week3_arp_hook)
+      week3_arp_hook(buf, len);
+  }
   else if (verdict == WEEK2_ETH_TO_IP)
     __sync_fetch_and_add(&week2_rx_ip, 1);
   else

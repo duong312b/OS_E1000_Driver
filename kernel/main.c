@@ -4,7 +4,7 @@
 #include "riscv.h"
 #include "defs.h"
 #include "net.h"
-
+void week3_arp_init(void);
 volatile static int started = 0;
 
 // start() jumps here in supervisor mode on all CPUs.
@@ -25,10 +25,12 @@ main()
    e1000_read_mac();
    e1000_init_rings();
    e1000_configure_rings(); 
-  week2_arp_send_request(MAKE_IP_ADDR(10, 0, 2, 2));
+  //week2_arp_send_request(MAKE_IP_ADDR(10, 0, 2, 2));
+  week3_arp_init();
+  week3_arp_selftest();
     procinit();         // process table
     trapinit();         // trap vectors
-    trapinithart();     // install kernel trap vector
+    trapinithart();     // install kernel trap vector 
     plicinit();         // set up interrupt controller
     plicinithart();     // ask PLIC for device interrupts
     binit();            // buffer cache
