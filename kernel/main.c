@@ -1,3 +1,4 @@
+
 #include "e1000.h"
 #include "types.h"
 #include "param.h"
@@ -5,7 +6,9 @@
 #include "riscv.h"
 #include "defs.h"
 #include "net.h"
+
 void week3_arp_init(void);
+
 volatile static int started = 0;
 
 // start() jumps here in supervisor mode on all CPUs.
@@ -18,37 +21,33 @@ main()
     printk("\n");
     printk("xv6 kernel is booting\n");
     printk("\n");
-    kinit();            // physical page allocator
-    kvminit();          // create kernel page table
-    kvminithart();      // turn on paging
+
+    kinit();
+    kvminit();
+    kvminithart();
+
+    // Initialize E1000 driver.
     pci_init();
     e1000_test_mmio();
-   e1000_read_mac();
-   e1000_init_rings();
+    e1000_read_mac();
+    e1000_init_rings();
     e1000_configure_rings();
     e1000_test_tx();
 
-    //week2_arp_send_request(MAKE_IP_ADDR(10, 0, 2, 2));
+    // Initialize and test ARP.
     week3_arp_init();
     week3_arp_selftest();
-   e1000_configure_rings(); 
-  //week2_arp_send_request(MAKE_IP_ADDR(10, 0, 2, 2));
-  week3_arp_init();
-  week3_arp_selftest();
-=======
-   e1000_configure_rings();
-    e1000_test_tx();
->>>>>>> 914a058 (Implement E1000 TX and RX ring support)
-    procinit();         // process table
-    trapinit();         // trap vectors
-    trapinithart();     // install kernel trap vector 
-    plicinit();         // set up interrupt controller
-    plicinithart();     // ask PLIC for device interrupts
-    binit();            // buffer cache
-    iinit();            // inode table
-    fileinit();         // file table
-    virtio_disk_init(); // emulated hard disk
-    userinit();         // first user process
+
+    procinit();
+    trapinit();
+    trapinithart();
+    plicinit();
+    plicinithart();
+    binit();
+    iinit();
+    fileinit();
+    virtio_disk_init();
+    userinit();
 
     __atomic_store_n(&started, 1, __ATOMIC_RELEASE);
   } else {
@@ -56,9 +55,9 @@ main()
       ;
 
     printk("hart %d starting\n", cpuid());
-    kvminithart();  // turn on paging
-    trapinithart(); // install kernel trap vector
-    plicinithart(); // ask PLIC for device interrupts
+    kvminithart();
+    trapinithart();
+    plicinithart();
   }
 
   scheduler();
