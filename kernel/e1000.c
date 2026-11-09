@@ -309,8 +309,11 @@ void
 e1000_test_rx(void)
 {
     char buf[E1000_RX_BUF_SIZE];
+    char expected[] = "HOST-TO-XV6-RX-TEST";
     int len;
     int timeout;
+    int i;
+    int payload_ok = 1;
 
     printk("E1000: Waiting for test frame...\n");
 
@@ -319,10 +322,51 @@ e1000_test_rx(void)
 
         if (len > 0) {
             printk("E1000: RX test passed, length=%d\n", len);
+
             printk("E1000: Destination MAC = %x:%x:%x:%x:%x:%x\n",
                    (uint8)buf[0], (uint8)buf[1],
                    (uint8)buf[2], (uint8)buf[3],
                    (uint8)buf[4], (uint8)buf[5]);
+
+            // Check EtherType.
+            printk("E1000: EtherType = 0x%x%x\n",
+                   (uint8)buf[12], (uint8)buf[13]);
+
+            if ((uint8)buf[12] != 0x88 ||
+                (uint8)buf[13] != 0xb5) {
+                printk("E1000: EtherType check FAILED\n");
+                return;
+            }
+
+            // Check payload length.
+            if (len < 14 + sizeof(expected) - 1) {
+                printk("E1000: Payload too short\n");
+                return;
+            }
+
+            // Compare received payload with expected data.
+            for (i = 0; i < sizeof(expected) - 1; i++) {
+                if (buf[14 + i] != expected[i]) {
+                    payload_ok = 0;
+                    break;
+                }
+            }
+
+            // Print payload bytes in hexadecimal.
+            printk("E1000: Payload = ");
+
+            for (i = 14; i < len; i++) {
+                printk("%x ", (uint8)buf[i]);
+            }
+
+            printk("\n");
+
+            if (payload_ok) {
+                printk("E1000: Payload check PASSED\n");
+            } else {
+                printk("E1000: Payload check FAILED at byte %d\n", i);
+            }
+
             return;
         }
 

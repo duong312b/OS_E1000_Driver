@@ -33,7 +33,6 @@ main()
     e1000_init_rings();
     e1000_configure_rings();
     e1000_test_tx();
-
     // Initialize and test ARP.
     week3_arp_init();
     week3_arp_selftest();
