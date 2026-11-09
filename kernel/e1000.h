@@ -47,7 +47,16 @@ struct tx_desc {
     uint8 css;
     uint16 special;
 } __attribute__((packed));
+// TX descriptor command bits
+#define E1000_TXD_CMD_EOP  0x01
+#define E1000_TXD_CMD_IFCS 0x02
+#define E1000_TXD_CMD_RS   0x08
 
+// TX descriptor status bits
+#define E1000_TXD_STAT_DD  0x01
+// RX descriptor status bits
+#define E1000_RXD_STAT_DD  0x01
+#define E1000_RXD_STAT_EOP 0x02
 // RX Descriptor
 struct rx_desc {
     uint64 addr;
@@ -61,4 +70,10 @@ struct rx_desc {
 void e1000_test_mmio(void);
 void e1000_read_mac(void);
 
+void e1000_init_rings(void);
+void e1000_configure_rings(void);
+int e1000_transmit(char *buf, int len);
+void e1000_test_tx(void);
+int e1000_receive(char *buf, int maxlen);
+void e1000_test_rx(void);
 #endif

@@ -1,3 +1,4 @@
+#include "e1000.h"
 #include "types.h"
 #include "param.h"
 #include "memlayout.h"
@@ -24,10 +25,20 @@ main()
     e1000_test_mmio();
    e1000_read_mac();
    e1000_init_rings();
+    e1000_configure_rings();
+    e1000_test_tx();
+
+    //week2_arp_send_request(MAKE_IP_ADDR(10, 0, 2, 2));
+    week3_arp_init();
+    week3_arp_selftest();
    e1000_configure_rings(); 
   //week2_arp_send_request(MAKE_IP_ADDR(10, 0, 2, 2));
   week3_arp_init();
   week3_arp_selftest();
+=======
+   e1000_configure_rings();
+    e1000_test_tx();
+>>>>>>> 914a058 (Implement E1000 TX and RX ring support)
     procinit();         // process table
     trapinit();         // trap vectors
     trapinithart();     // install kernel trap vector 
