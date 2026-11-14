@@ -26,3 +26,6 @@
 #define SYS_sendto   25
 #define SYS_recvfrom 26
 #define SYS_netinfo  27
+// kernel/syscall.h
+#define SYS_ping   28
+

@@ -48,3 +48,5 @@ entry("bind");
 entry("sendto");
 entry("recvfrom");
 entry("netinfo");
+# user/usys.pl  (cuối danh sách entry)
+entry("ping");

@@ -108,6 +108,9 @@ extern uint64 sys_bind(void);
 extern uint64 sys_sendto(void);
 extern uint64 sys_recvfrom(void);
 extern uint64 sys_netinfo(void);
+// kernel/syscall.c  (thêm khai báo cùng nhóm extern)
+extern uint64 sys_ping(void);
+
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
 static uint64 (*syscalls[])(void) = {
@@ -140,6 +143,8 @@ static uint64 (*syscalls[])(void) = {
   [SYS_recvfrom] sys_recvfrom,
   [SYS_netinfo]  sys_netinfo,
   // clang-format on
+  // và thêm vào bảng syscalls[]
+  [SYS_ping]    sys_ping,
 };
 
 void

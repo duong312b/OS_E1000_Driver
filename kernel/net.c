@@ -1,6 +1,6 @@
 #include "types.h"
 #include "net.h"
-
+#include "week4_ip.h"
 uint32
 cksum_partial(uint32 sum, const void *buf, int len)
 {
@@ -87,7 +87,7 @@ week2_eth_classify(const uint8 *buf, int len, const uint8 *mymac)
 }
 
 void (*week3_arp_hook)(const uint8 *buf, int len);
-
+void (*week4_ip_hook)(const uint8 *buf, int len);
 int
 net_rx(const uint8 *buf, int len)
 {
@@ -99,8 +99,11 @@ net_rx(const uint8 *buf, int len)
     if (week3_arp_hook)
       week3_arp_hook(buf, len);
   }
-  else if (verdict == WEEK2_ETH_TO_IP)
-    __sync_fetch_and_add(&week2_rx_ip, 1);
+  else if (verdict == WEEK2_ETH_TO_IP) {
+  __sync_fetch_and_add(&week2_rx_ip, 1);
+  if (week4_ip_hook)
+    week4_ip_hook(buf, len);
+  }
   else
     __sync_fetch_and_add(&week2_rx_drop, 1);
   return verdict;

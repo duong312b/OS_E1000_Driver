@@ -35,6 +35,8 @@ OBJS = \
   $K/virtio_disk.o \
   $K/pci.o \
   $K/e1000.o \
+  $K/week4_ip.o \
+  $K/week4_ip_kernel.o \
 
 # riscv64-unknown-elf- or riscv64-linux-gnu-
 # perhaps in /opt/riscv/bin
@@ -162,6 +164,8 @@ UPROGS=\
 	$U/_dorphan\
 	$U/_sync\
 	$U/_nettests\
+	$U/_nettests\
+	$U/_ping\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)

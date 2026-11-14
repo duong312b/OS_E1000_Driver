@@ -5,21 +5,17 @@
 #include "defs.h"
 #include "net.h"
 
+extern int e1000_transmit(uint8 *buf, int len);
+
 int
 week2_net_tx(uint8 *buf, int len)
 {
-  int i;
-
-  printk("week2_net_tx: %d bytes\n", len);
-  for (i = 0; i < len; i++) {
-    if (buf[i] < 16)
-      printk("0");
-    printk("%x", buf[i]);
-    if (i % 16 == 15 || i == len - 1)
-      printk("\n");
-    else
-      printk(" ");
+  // Gọi trực tiếp xuống hàm E1000 để truyền ra ngoài
+  if (e1000_transmit(buf, len) < 0) {
+    printk("week2_net_tx: E1000 TX ring is full\n");
   }
+
+  // Luôn phải free buffer sau khi đã copy nội dung của nó xuống DMA buffer
   kfree(buf);
   return 0;
 }

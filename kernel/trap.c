@@ -5,7 +5,10 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "e1000.h"
+#include "net.h"
 void week3_arp_tick(void);
+void week4_ip_tick(void);
 struct spinlock tickslock;
 uint ticks;
 
@@ -15,6 +18,7 @@ extern char trampoline[], uservec[];
 void kernelvec();
 
 extern int devintr();
+extern void e1000_recv(void);
 
 void
 trapinit(void)
@@ -173,6 +177,7 @@ clockintr()
     release(&tickslock);
   }
   week3_arp_tick();
+  week4_ip_tick();
   // ask for the next timer interrupt. this also clears
   // the interrupt request. 1000000 is about a tenth
   // of a second.
@@ -199,6 +204,8 @@ devintr()
       uartintr();
     } else if (irq == VIRTIO0_IRQ) {
       virtio_disk_intr();
+    } else if (e1000_irq && irq == e1000_irq) {
+      e1000_intr();
     } else if (irq) {
       printk("unexpected interrupt irq=%d\n", irq);
     }
