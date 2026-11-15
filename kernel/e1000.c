@@ -2,6 +2,8 @@
 #include "riscv.h"
 #include "defs.h"
 #include "e1000.h"
+#include "net.h"
+#include "spinlock.h"
 #define NUM_TX_DESC 8
 #define NUM_RX_DESC 8
 #define E1000_BUF_SIZE 2048
@@ -14,6 +16,14 @@ char *rx_bufs[NUM_RX_DESC];
 
 static int tx_tail = 0;
 static int rx_head = 0;
+
+static struct spinlock tx_lock;
+static struct spinlock rx_lock;
+
+static uint32 tx_packets = 0;
+static uint32 tx_errors = 0;
+static uint32 rx_packets = 0;
+static uint32 rx_errors = 0;
 #define REG(offset) ((volatile uint32 *)(E1000_MMIO_BASE + (offset)))
 
 void
@@ -50,6 +60,14 @@ void
 e1000_init_rings(void)
 {
     int i;
+
+    initlock(&tx_lock, "e1000-tx");
+    initlock(&rx_lock, "e1000-rx");
+
+    tx_tail = 0;
+    rx_head = 0;
+    tx_packets = tx_errors = 0;
+    rx_packets = rx_errors = 0;
 
     // Allocate TX descriptor ring
     tx_ring = (struct tx_desc *)kalloc();
@@ -157,76 +175,80 @@ e1000_transmit(char *buf, int len)
     int next;
     int timeout;
 
-    if (buf == 0 || len < 14 || len > E1000_TX_BUF_SIZE) {
+    if (buf == 0 || len < 14 || len > E1000_TX_BUF_SIZE)
+        return -1;
+
+    acquire(&tx_lock);
+
+    if (tx_ring == 0) {
+        tx_errors++;
+        release(&tx_lock);
         return -1;
     }
 
     idx = tx_tail;
 
-    // Check descriptor availability.
     if (!(*(volatile uint8 *)&tx_ring[idx].status &
           E1000_TXD_STAT_DD)) {
+        tx_errors++;
+        release(&tx_lock);
         return -1;
     }
 
-    // Copy frame into DMA buffer.
     memmove(tx_bufs[idx], buf, len);
 
-    // Configure TX descriptor.
     tx_ring[idx].length = (uint16)len;
     tx_ring[idx].cso = 0;
     tx_ring[idx].cmd =
         E1000_TXD_CMD_EOP |
         E1000_TXD_CMD_IFCS |
         E1000_TXD_CMD_RS;
-
     tx_ring[idx].css = 0;
     tx_ring[idx].special = 0;
     tx_ring[idx].status = 0;
 
     __sync_synchronize();
 
-    // Update TX tail.
     next = (idx + 1) % NUM_TX_DESC;
     *REG(E1000_TDT) = next;
 
-    // Wait for hardware completion.
     for (timeout = 0; timeout < 1000000; timeout++) {
         if (*(volatile uint8 *)&tx_ring[idx].status &
-            E1000_TXD_STAT_DD) {
+            E1000_TXD_STAT_DD)
             break;
-        }
     }
 
     if (!(*(volatile uint8 *)&tx_ring[idx].status &
           E1000_TXD_STAT_DD)) {
-        printk("E1000: TX timeout, descriptor=%d\n", idx);
+        tx_errors++;
+        release(&tx_lock);
         return -1;
     }
 
-    printk("E1000: TX completed, descriptor=%d, length=%d\n",
-           idx, len);
-
     tx_tail = next;
+    tx_packets++;
 
+    release(&tx_lock);
     return 0;
-
 }
+
+
 void
 e1000_test_tx(void)
 {
     uint8 frame[60];
     uint32 ral, rah;
     int i;
+    int success = 0;
+    int failed = 0;
 
-    // Xoa frame
     memset(frame, 0, sizeof(frame));
 
-    // MAC dich: Broadcast
+    // Destination MAC: broadcast.
     for (i = 0; i < 6; i++)
         frame[i] = 0xff;
 
-    // Doc MAC nguon tu E1000
+    // Read source MAC from E1000.
     ral = *REG(E1000_RAL0);
     rah = *REG(E1000_RAH0);
 
@@ -237,21 +259,31 @@ e1000_test_tx(void)
     frame[10] = rah & 0xff;
     frame[11] = (rah >> 8) & 0xff;
 
-    // EtherType = 0x88B5
+    // Test EtherType.
     frame[12] = 0x88;
     frame[13] = 0xb5;
-
-    // Payload thu nghiem
     memmove(&frame[14], "XV6-E1000-TEST", 14);
 
-    printk("E1000: Sending test frame...\n");
+    printk("E1000: Starting TX burst test (32 frames)...\n");
 
-    if (e1000_transmit((char *)frame, 60) == 0) {
-        printk("E1000: Test TX passed\n");
-    } else {
-        printk("E1000: Test TX failed\n");
+    for (i = 0; i < 32; i++) {
+        frame[56] = i & 0xff;
+        frame[57] = (i >> 8) & 0xff;
+        frame[58] = 0;
+        frame[59] = 0;
+
+        if (e1000_transmit((char *)frame, sizeof(frame)) == 0)
+            success++;
+        else
+            failed++;
     }
+
+    printk("E1000: TX burst result: success=%d failed=%d\n",
+           success, failed);
+
+    e1000_print_stats();
 }
+
 int
 e1000_receive(char *buf, int maxlen)
 {
@@ -262,36 +294,37 @@ e1000_receive(char *buf, int maxlen)
     if (buf == 0 || maxlen <= 0)
         return -1;
 
-    idx = rx_head;
+    acquire(&rx_lock);
 
-    // Check RX descriptor completion.
+    if (rx_ring == 0) {
+        rx_errors++;
+        release(&rx_lock);
+        return -1;
+    }
+
+    idx = rx_head;
     status = *(volatile uint8 *)&rx_ring[idx].status;
 
-    if (!(status & E1000_RXD_STAT_DD))
+    if (!(status & E1000_RXD_STAT_DD)) {
+        release(&rx_lock);
         return 0;
+    }
 
     __sync_synchronize();
 
     len = rx_ring[idx].length;
 
-    // Check descriptor errors and frame length.
-    if ((rx_ring[idx].errors != 0) ||
+    if (rx_ring[idx].errors != 0 ||
         !(status & E1000_RXD_STAT_EOP) ||
         len < 14 || len > maxlen ||
         len > E1000_RX_BUF_SIZE) {
-
-        printk("E1000: Invalid RX frame, len=%d errors=0x%x\n",
-               len, rx_ring[idx].errors);
-
         len = -1;
+        rx_errors++;
     } else {
         memmove(buf, rx_bufs[idx], len);
-
-        printk("E1000: RX completed, descriptor=%d, length=%d\n",
-               idx, len);
+        rx_packets++;
     }
 
-    // Return descriptor to E1000.
     rx_ring[idx].length = 0;
     rx_ring[idx].checksum = 0;
     rx_ring[idx].errors = 0;
@@ -300,11 +333,34 @@ e1000_receive(char *buf, int maxlen)
     __sync_synchronize();
 
     *REG(E1000_RDT) = idx;
-
     rx_head = (idx + 1) % NUM_RX_DESC;
 
+    release(&rx_lock);
     return len;
 }
+
+
+
+int
+e1000_poll_rx(void)
+{
+    char buf[E1000_RX_BUF_SIZE];
+    int len;
+    int count = 0;
+
+    while (count < NUM_RX_DESC) {
+        len = e1000_receive(buf, sizeof(buf));
+
+        if (len <= 0)
+            break;
+
+        net_rx((const uint8 *)buf, len);
+        count++;
+    }
+
+    return count;
+}
+
 void
 e1000_test_rx(void)
 {
@@ -377,4 +433,15 @@ e1000_test_rx(void)
     }
 
     printk("E1000: RX timeout, no frame received\n");
+}
+
+void
+e1000_print_stats(void)
+{
+    printk("E1000 TX: packets=%d errors=%d\n",
+           __sync_fetch_and_add(&tx_packets, 0),
+           __sync_fetch_and_add(&tx_errors, 0));
+    printk("E1000 RX: packets=%d errors=%d\n",
+           __sync_fetch_and_add(&rx_packets, 0),
+           __sync_fetch_and_add(&rx_errors, 0));
 }

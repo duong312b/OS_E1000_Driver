@@ -108,6 +108,8 @@ extern uint64 sys_bind(void);
 extern uint64 sys_sendto(void);
 extern uint64 sys_recvfrom(void);
 extern uint64 sys_netinfo(void);
+extern uint64 sys_e1000_rx_test(void);
+extern uint64 sys_e1000_poll_rx(void);
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
 static uint64 (*syscalls[])(void) = {
@@ -134,11 +136,13 @@ static uint64 (*syscalls[])(void) = {
   [SYS_mkdir]   = sys_mkdir,
   [SYS_close]   = sys_close,
   [SYS_sync]    = sys_sync,
-  [SYS_socket]   sys_socket,
+  [SYS_socket]   = sys_socket,
   [SYS_bind]     sys_bind,
-  [SYS_sendto]   sys_sendto,
+  [SYS_sendto]   = sys_sendto,
   [SYS_recvfrom] sys_recvfrom,
   [SYS_netinfo]  sys_netinfo,
+  [SYS_e1000_rx_test] = sys_e1000_rx_test,
+  [SYS_e1000_poll_rx] = sys_e1000_poll_rx,
   // clang-format on
 };
 

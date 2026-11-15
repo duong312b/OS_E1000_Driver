@@ -4,24 +4,20 @@
 #include "riscv.h"
 #include "defs.h"
 #include "net.h"
+#include "e1000.h"
 
 int
 week2_net_tx(uint8 *buf, int len)
 {
-  int i;
+  int ret;
 
-  printk("week2_net_tx: %d bytes\n", len);
-  for (i = 0; i < len; i++) {
-    if (buf[i] < 16)
-      printk("0");
-    printk("%x", buf[i]);
-    if (i % 16 == 15 || i == len - 1)
-      printk("\n");
-    else
-      printk(" ");
-  }
+  if (buf == 0)
+    return -1;
+
+  ret = e1000_transmit((char *)buf, len);
   kfree(buf);
-  return 0;
+
+  return ret;
 }
 
 int

@@ -57,3 +57,5 @@ int sendto(int fd, const void *buf, int n, uint32 ip, int port);
 int recvfrom(int fd, void *buf, int n, uint32 *ip, int *port);
 int netinfo(void *st);
 #endif
+int e1000_rx_test(void);
+int e1000_poll_rx(void);

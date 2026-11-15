@@ -161,6 +161,8 @@ UPROGS=\
 	$U/_forphan\
 	$U/_dorphan\
 	$U/_sync\
+	$U/_rx_test\
+	$U/_rx_poll\
 	$U/_nettests\
 
 fs.img: mkfs/mkfs README $(UPROGS)
@@ -192,11 +194,9 @@ QEMUOPTS += -global virtio-mmio.force-legacy=false
 QEMUOPTS += -drive file=fs.img,if=none,format=raw,id=x0
 QEMUOPTS += -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
 
-FWDPORT ?= 26000
-QEMUOPTS += -netdev user,id=net0,hostfwd=udp::$(FWDPORT)-:2000
+QEMUOPTS += -netdev tap,id=net0,ifname=tap0,script=no,downscript=no
 QEMUOPTS += -object filter-dump,id=f0,netdev=net0,file=packets.pcap
 QEMUOPTS += -device e1000,netdev=net0,bus=pcie.0
-
 qemu: check-qemu-version $K/kernel fs.img
 	$(QEMU) $(QEMUOPTS)
 

@@ -72,8 +72,11 @@ void e1000_read_mac(void);
 
 void e1000_init_rings(void);
 void e1000_configure_rings(void);
+void e1000_print_stats(void);
 int e1000_transmit(char *buf, int len);
 void e1000_test_tx(void);
 int e1000_receive(char *buf, int maxlen);
 void e1000_test_rx(void);
 #endif
+
+int e1000_poll_rx(void);

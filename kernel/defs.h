@@ -192,3 +192,5 @@ void            e1000_configure_rings(void);
 void e1000_test_rx(void);
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x) / sizeof((x)[0]))
+
+int e1000_poll_rx(void);
