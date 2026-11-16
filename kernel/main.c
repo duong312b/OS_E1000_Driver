@@ -45,6 +45,7 @@ main()
     binit();
     iinit();
     fileinit();
+    sockinit();
     virtio_disk_init();
     userinit();
 

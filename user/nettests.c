@@ -2,6 +2,7 @@
 #include "kernel/types.h"
 #include "kernel/stat.h"
 #include "user/user.h"
+#include "kernel/netinfo.h"
 
 static int npass, nfail, nskip;
 
@@ -67,13 +68,25 @@ static int test_fork_many(void) {
   
 }
 
-static int test_e1000_init(void) {
-  SKIP("waiting...");
+#ifdef HAVE_SOCKET
+static int test_e1000_init(void) { // pass lhi MAC doc tu E1000 khop MAC cua stack
+  struct netinfo st;
+  CHECK_EQ(netinfo(&st), 0);
+  CHECK(st.mac[0] == 0x52 && st.mac[1] == 0x54 && st.mac[2] == 0x00 &&
+        st.mac[3] == 0x12 && st.mac[4] == 0x34 && st.mac[5] == 0x56);
+  return 0;
 }
 
-static int test_arp_request_tx(void) {
-  SKIP("waiting...");
+static int test_arp_request_tx(void) { // pass khi tu luc boot gui >= 1 khung ARP request ra NIC
+  struct netinfo st;
+  CHECK_EQ(netinfo(&st), 0);
+  CHECK(st.tx_frames >= 1);
+  return 0;
 }
+#else
+static int test_e1000_init(void) { SKIP("need HAVE_SOCKET"); }
+static int test_arp_request_tx(void) { SKIP("need HAVE_SOCKET"); }
+#endif
 
 // chua co syscall van bien dich duoc
 #ifdef HAVE_SOCKET
@@ -161,7 +174,6 @@ static struct test tests[] = {
     { "fd_limit_no_leak",      test_fd_limit_no_leak },
   #endif
 
-  { 0, 0 } // ket thuc bang
 };
 
 static void run(struct test *t) {

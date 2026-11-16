@@ -12,6 +12,8 @@ OBJS = \
   $K/week2_arp.o \
   $K/week3_arp.o \
   $K/week3_arp_kernel.o \
+  $K/udp.o \
+  $K/sysnet.o \
   $K/spinlock.o \
   $K/string.o \
   $K/main.o \
@@ -97,7 +99,8 @@ endif
 
 LDFLAGS = -z max-page-size=4096
 
-ifdef HAVE_SOCKET
+HAVE_SOCKET ?= 1
+ifeq ($(HAVE_SOCKET), 1)
 CFLAGS += -DHAVE_SOCKET
 endif
 
@@ -164,6 +167,7 @@ UPROGS=\
 	$U/_rx_test\
 	$U/_rx_poll\
 	$U/_nettests\
+	$U/_udp_echo\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
@@ -194,7 +198,15 @@ QEMUOPTS += -global virtio-mmio.force-legacy=false
 QEMUOPTS += -drive file=fs.img,if=none,format=raw,id=x0
 QEMUOPTS += -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
 
+# NET=user (mac dinh, tests can): slirp, gateway 10.0.2.2, host:FWDPORT -> 10.0.2.15:2000
+# NET=tap: dung tap0 co san (make qemu NET=tap)
+NET ?= user
+FWDPORT ?= 26000
+ifeq ($(NET),tap)
 QEMUOPTS += -netdev tap,id=net0,ifname=tap0,script=no,downscript=no
+else
+QEMUOPTS += -netdev user,id=net0,hostfwd=udp::$(FWDPORT)-:2000
+endif
 QEMUOPTS += -object filter-dump,id=f0,netdev=net0,file=packets.pcap
 QEMUOPTS += -device e1000,netdev=net0,bus=pcie.0
 qemu: check-qemu-version $K/kernel fs.img

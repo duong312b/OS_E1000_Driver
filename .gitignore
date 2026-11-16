@@ -1,5 +1,4 @@
-
-# Build outputs
+# xv6 build outputs
 *.o
 *.d
 *.asm
@@ -8,7 +7,27 @@ fs.img
 kernel/kernel
 mkfs/mkfs
 user/_*
-tests/logs/
-*.pcap
 user/usys.S
 .gdbinit
+
+# Host unit-test binaries (built by tests/host/Makefile)
+tests/host/test_net_headers
+tests/host/week2_eth_arp_test
+tests/host/week3_arp_test
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Test run outputs
+tests/logs/
+*.pcap
+
+# Editor / OS junk
+.vscode/
+*.swp
+*~
+.DS_Store
+
+# Docs
+docs/

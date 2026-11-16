@@ -87,6 +87,9 @@ week2_eth_classify(const uint8 *buf, int len, const uint8 *mymac)
 }
 
 void (*week3_arp_hook)(const uint8 *buf, int len);
+void (*week4_ip_hook)(const uint8 *buf, int len);
+uint32 week4_tx_frames;   // frames the E1000 confirmed sent (DD set)
+uint32 week4_tx_err;      // TX failures (ring full / timeout / no ring)
 
 int
 net_rx(const uint8 *buf, int len)
@@ -99,8 +102,10 @@ net_rx(const uint8 *buf, int len)
     if (week3_arp_hook)
       week3_arp_hook(buf, len);
   }
-  else if (verdict == WEEK2_ETH_TO_IP)
+  else if (verdict == WEEK2_ETH_TO_IP) {
     __sync_fetch_and_add(&week2_rx_ip, 1);
+    if (week4_ip_hook) week4_ip_hook(buf, len);
+  }
   else
     __sync_fetch_and_add(&week2_rx_drop, 1);
   return verdict;

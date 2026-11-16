@@ -197,4 +197,35 @@ int  week3_arp_send(uint32 ip, uint8 *frame, int len);
 void week3_arp_tick(void);
 void week3_arp_selftest(void);
 
+// ---- Tuan 4: UDP (udp.c = ham thuan, sysnet.c = socket + syscall) ----
+#define UDP_FRAME_HDR   (ETH_HDR_LEN + IP_HDR_MIN_LEN + UDP_HDR_LEN)   // 42
+#define UDP_MAX_PAYLOAD (ETH_MTU - IP_HDR_MIN_LEN - UDP_HDR_LEN)       // 1472
+
+#define UDP_PARSE_SHORT   -1
+#define UDP_PARSE_NOTUDP  -2
+#define UDP_PARSE_BADIP   -3
+#define UDP_PARSE_FRAG    -4
+#define UDP_PARSE_NOTME   -5
+#define UDP_PARSE_BADSUM  -6
+
+struct udp_info {
+  uint32 src, dst;          // host order
+  uint16 sport, dport;      // host order
+  const uint8 *data;        // tro vao ben trong frame (muon, khong so huu)
+  int dlen;
+};
+
+int udp_build(uint8 *frame, int framemax, const uint8 *srcmac,
+              uint32 srcip, uint32 dstip, uint16 sport, uint16 dport,
+              int plen, uint16 ipid);
+int udp_parse(const uint8 *frame, int len, uint32 myip, struct udp_info *out);
+
+// net_rx goi hook nay cho moi khung IPv4 (sysnet.c gan = udp_ip_rx).
+// Tuan sau B thay bang ip_rx() de tach ICMP/UDP.
+extern void (*week4_ip_hook)(const uint8 *buf, int len);
+extern uint32 week4_tx_frames, week4_tx_err;
+void net_poll(void);
+void sockinit(void);
+
 #endif
+

@@ -190,6 +190,12 @@ void            e1000_read_mac(void);
 void            e1000_init_rings(void);
 void            e1000_configure_rings(void);
 void e1000_test_rx(void);
+
+// sysnet.c
+struct sock;
+void sockclose(struct sock *);
+// week3_arp_kernel.c
+int week3_arp_send(uint32 ip, uint8 *frame, int len);
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x) / sizeof((x)[0]))
 

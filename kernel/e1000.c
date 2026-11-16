@@ -182,6 +182,7 @@ e1000_transmit(char *buf, int len)
 
     if (tx_ring == 0) {
         tx_errors++;
+        week4_tx_err++;
         release(&tx_lock);
         return -1;
     }
@@ -191,6 +192,7 @@ e1000_transmit(char *buf, int len)
     if (!(*(volatile uint8 *)&tx_ring[idx].status &
           E1000_TXD_STAT_DD)) {
         tx_errors++;
+        week4_tx_err++;
         release(&tx_lock);
         return -1;
     }
@@ -221,12 +223,14 @@ e1000_transmit(char *buf, int len)
     if (!(*(volatile uint8 *)&tx_ring[idx].status &
           E1000_TXD_STAT_DD)) {
         tx_errors++;
+        week4_tx_err++;
         release(&tx_lock);
         return -1;
     }
 
     tx_tail = next;
     tx_packets++;
+    week4_tx_frames++;
 
     release(&tx_lock);
     return 0;

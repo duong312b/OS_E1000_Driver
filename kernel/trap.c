@@ -6,6 +6,7 @@
 #include "proc.h"
 #include "defs.h"
 void week3_arp_tick(void);
+void net_poll(void);
 struct spinlock tickslock;
 uint ticks;
 
@@ -171,6 +172,7 @@ clockintr()
     ticks++;
     wakeup(&ticks);
     release(&tickslock);
+    net_poll(); // rut RX ring tam thay cho ngat E1000 (week 4)
   }
   week3_arp_tick();
   // ask for the next timer interrupt. this also clears

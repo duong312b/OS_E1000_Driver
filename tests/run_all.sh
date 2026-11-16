@@ -44,7 +44,7 @@ run_xv6_tests() {   # $1 = cpus, $2 = lần thứ mấy
       until grep -q 'init: starting sh' '$log' 2>/dev/null; do
         sleep 0.2; t=\$((t+1)); [ \$t -gt $((BOOT_TIMEOUT*5)) ] && exit 0
       done
-      sleep 0.5; echo nettests; sleep $TEST_TIMEOUT
+      sleep 0.5; echo 'udp_echo 2000 0 -q &'; sleep 1; echo nettests; sleep $TEST_TIMEOUT
     ) | make qemu CPUS=$cpus FWDPORT=$FWDPORT
   " > "$log" 2>&1 &
   local pid=$!
@@ -121,8 +121,6 @@ fi
 if [ "$MODE" != xv6 ]; then
   run_host_tests || bad_runs=$((bad_runs+1))
 fi
-
-run_host_tests || bad_runs=$((bad_runs+1))
 
 echo
 echo "TỔNG KẾT: $total_runs lần chạy xv6, $bad_runs lần lỗi"
