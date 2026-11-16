@@ -1,6 +1,6 @@
 CC ?= gcc
 CFLAGS = -Wall -Wextra -Werror -O1 -I../../kernel -I.
-TESTS = test_net_headers week3_arp_test
+TESTS = test_net_headers week3_arp_test week4_ip_test
 
 test: $(TESTS)
 	@for t in $(TESTS); do echo "== $$t =="; ./$$t || exit 1; done
@@ -13,6 +13,9 @@ test_net_headers: test_net_headers.c ../../kernel/net.c ../../kernel/net.h vecto
 
 week3_arp_test: week3_arp_test.c ../../kernel/net.c ../../kernel/week3_arp.c ../../kernel/net.h vectors.h
 	$(CC) $(CFLAGS) -o $@ week3_arp_test.c ../../kernel/net.c ../../kernel/week3_arp.c
+
+week4_ip_test: week4_ip_test.c ../../kernel/net.c ../../kernel/week4_ip.c ../../kernel/net.h ../../kernel/week4_ip.h vectors.h
+	$(CC) $(CFLAGS) -o $@ week4_ip_test.c ../../kernel/net.c ../../kernel/week4_ip.c
 
 clean:
 	rm -f $(TESTS)
