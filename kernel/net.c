@@ -1,6 +1,6 @@
 #include "types.h"
 #include "net.h"
-
+#include "week4_ip.h"
 uint32
 cksum_partial(uint32 sum, const void *buf, int len)
 {

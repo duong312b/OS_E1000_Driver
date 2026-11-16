@@ -17,7 +17,7 @@
 
 // Dia chi MMIO du kien cho E1000 tren QEMU virt
 #define E1000_MMIO_BASE     0x40000000U
-
+int e1000_irq;
 static volatile uint16 *
 pci_config_addr(int dev, int func, int offset)
 {
@@ -136,7 +136,13 @@ pci_init(void)
             *pci_config_addr(dev, func, PCI_COMMAND) = command;
 
             printk("PCI: COMMAND enabled = 0x%x\n", command);
-
+            
+            uint32 intr = *pci_config_addr32(dev, func, 0x3c);
+            int pin = (intr >> 8) & 0xff;          // 1 = INTA
+            if (pin == 0) pin = 1;
+              e1000_irq = 32 + ((dev + pin - 1) % 4);
+            printk("PCI: E1000 IRQ = %d\n", e1000_irq);
+            
             found = 1;
         }
     }

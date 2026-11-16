@@ -25,6 +25,7 @@
 #include "net.h"
 #include "netinfo.h"
 #include "e1000.h"
+#include "week4_ip.h"
 
 #define NSOCK        16          // so socket toi da toan he thong
 #define SOCK_RXQ     16          // so datagram toi da xep hang moi socket
@@ -61,6 +62,7 @@ static struct spinlock netrx_lock;
 static uint8 rxbuf[E1000_RX_BUF_SIZE];   // [netrx_lock] static: khong dat 2 KB len stack ngat
 
 static void udp_ip_rx(const uint8 *buf, int len);
+static void udp_from_ip(const uint8 *frame, const struct week4_ip_info *ip);
 
 uint32 udp_rx_cnt, udp_tx_cnt, udp_noport, udp_qfull, udp_bad;
 
@@ -74,7 +76,9 @@ sockinit(void)
   for (i = 0; i < NSOCK; i++)
     initlock(&socktable.sock[i].lock, "sock");
   socktable.next_eport = EPORT_FIRST;
-  week4_ip_hook = udp_ip_rx;
+  // week4_ip_rx (week4_ip_kernel.c) owns week4_ip_hook and demuxes ICMP;
+  // UDP frames are handed to us through week4_udp_hook.
+  week4_udp_hook = udp_from_ip;
   __atomic_store_n(&sock_ready, 1, __ATOMIC_RELEASE);
 }
 
@@ -250,6 +254,13 @@ udp_ip_rx(const uint8 *buf, int len)
     return;
   }
   sock_deliver(u.src, u.sport, u.dport, u.data, u.dlen);
+}
+
+// week4_udp_hook: week4_ip_rx already validated the IP header.
+static void
+udp_from_ip(const uint8 *frame, const struct week4_ip_info *ip)
+{
+  udp_ip_rx(frame, ETH_HDR_LEN + ip->hdrlen + ip->paylen);
 }
 
 // Cau noi tam thoi (cho den khi A bat ngat E1000): clockintr tren hart 0 goi

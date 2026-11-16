@@ -15,6 +15,10 @@ week2_net_tx(uint8 *buf, int len)
     return -1;
 
   ret = e1000_transmit((char *)buf, len);
+  if (ret < 0)
+    printk("week2_net_tx: E1000 TX failed (ring full / timeout)\n");
+
+  // Always free: e1000_transmit copied the frame into its DMA buffer.
   kfree(buf);
 
   return ret;

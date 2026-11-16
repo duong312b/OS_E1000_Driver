@@ -6,6 +6,7 @@
 #include "riscv.h"
 #include "defs.h"
 #include "net.h"
+#include "week4_ip.h"
 
 void week3_arp_init(void);
 
@@ -33,8 +34,10 @@ main()
     e1000_init_rings();
     e1000_configure_rings();
     e1000_test_tx();
-    // Initialize and test ARP.
+    // Initialize and test ARP, then IPv4/ICMP.
     week3_arp_init();
+    week4_ip_init();
+    week4_ip_selftest();
     week3_arp_selftest();
 
     procinit();
@@ -45,7 +48,7 @@ main()
     binit();
     iinit();
     fileinit();
-    sockinit();
+    sockinit();         // after week4_ip_init: registers UDP via week4_udp_hook
     virtio_disk_init();
     userinit();
 

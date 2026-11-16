@@ -30,7 +30,11 @@ def req(fr):    # request 10.0.2.15 hoi 10.0.2.2
 def rep(fr):    # reply: 10.0.2.2 tra loi 10.0.2.15
     a = parse_arp(fr)
     return a is not None and a[0] == 2 and a[2] == "10.0.2.2" and a[4] == "10.0.2.15"
-
+    
+def queued_frame(fr):   # frame deadbeef da duoc giai phong sau khi hoc duoc MAC gateway
+    return (len(fr) >= 18 and fr[0:6] == bytes.fromhex("52550a000202")
+            and fr[12:14] == b"\x08\x00" and fr[14:18] == b"\xde\xad\xbe\xef")
+            
 for name, pred in (("arp_request_out", req), ("arp_reply_from_gateway", rep)):
     if wait_for(pcap, pred, timeout=15.0):
         print("PASS: " + name)
@@ -40,3 +44,4 @@ for name, pred in (("arp_request_out", req), ("arp_reply_from_gateway", rep)):
     else:
         print("SKIP: " + name)
 sys.exit(1 if bad else 0)
+

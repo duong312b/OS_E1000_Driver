@@ -50,3 +50,4 @@ entry("recvfrom");
 entry("netinfo");
 entry("e1000_rx_test");
 entry("e1000_poll_rx");
+entry("ping");
