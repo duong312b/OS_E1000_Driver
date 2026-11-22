@@ -15,13 +15,19 @@ extern void e1000_recv(void);
 
 // ---------------------------------------------------------------------------
 // Locking / ownership invariants (week 4)
-//  * icmp_lock protects slots[] ONLY. It is a leaf lock: never held while calling kalloc,
+//  icmp_lock protects slots[] ONLY. It is a leaf lock: never held while calling kalloc,
 //    kfree, week3_arp_send, week2_net_tx or printk.
-//  * RX (interrupt context): week4_ip_rx borrows `buf` (valid until it returns). Anything
+//  RX (interrupt context): week4_ip_rx borrows `buf` (valid until it returns). Anything
 //    kept is copied. The echo reply is built in a fresh kalloc page and handed to
 //    week2_net_tx, which frees it.
-//  * TX: week4_ip_send(frame) == 0  -> the stack owns the frame (ARP cache or NIC path frees it).
+//  X: week4_ip_send(frame) == 0  -> the stack owns the frame (ARP cache or NIC path frees it).
 //                         <  0  -> the caller still owns it and must kfree it.
+//    This relies on week3_arp_send() having the same contract: it must return < 0 ONLY when it
+//    did not consume the frame. week2_net_tx() always frees, so week3_arp_send() must not
+//    forward its failure on the "cache hit" path (see patches/week3_arp_send_ownership.diff),
+//    otherwise sys_ping's kfree() below would be a double free after an E1000 TX failure.
+//  Timers: week4_ip_tick() is called from clockintr() on EVERY hart (not only hart 0); it
+//    only touches slots[] under icmp_lock, so concurrent calls are safe.
 // ---------------------------------------------------------------------------
 
 struct week4_stats week4_stats;
@@ -156,6 +162,7 @@ week4_ip_rx(const uint8 *buf, int len)
   case WEEK4_IP_DROP_FRAG:  STAT(ip_drop_frag);  return;
   case WEEK4_IP_DROP_NOT_US: STAT(ip_drop_notus); return;
   case WEEK4_IP_DROP_ADDR:  STAT(ip_drop_addr);  return;
+  case WEEK4_IP_DROP_TTL:   STAT(ip_drop_ttl);   return;
   case WEEK4_IP_DROP_SHORT: STAT(ip_drop_short); return;
   default:                  STAT(ip_drop_hdr);   return;
   }
@@ -164,7 +171,7 @@ week4_ip_rx(const uint8 *buf, int len)
   if (ip.proto == IPPROTO_ICMP)
     icmp_input(buf, &ip, now);
   else if (ip.proto == IPPROTO_UDP && week4_udp_hook)
-    week4_udp_hook(buf, &ip);      // role C: UDP demux (borrowed buf, must not sleep)
+    week4_udp_hook(buf, &ip);      
   else
     STAT(ip_unsup_proto);
 }
@@ -200,7 +207,8 @@ week4_ip_send(uint8 *frame, uint32 dst, uint8 proto, int paylen)
   return week3_arp_send(week4_next_hop(dst, week2_my_ip), frame, n);
 }
 
-// Called from clockintr on hart 0 once per tick (interrupt context): must not sleep.
+// Called from clockintr on every hart, once per timer interrupt (interrupt context): must not
+// sleep. `ticks` itself is advanced by hart 0 only, so the deadline test is idempotent.
 void
 week4_ip_tick(void)
 {
@@ -276,6 +284,9 @@ sys_ping(void)
   s->deadline = ticks + tmo;
   release(&icmp_lock);
 
+  // t0 is taken before ARP resolution, so the first probe to a new next hop includes the ARP
+  // round trip (ARP miss); later probes do not (ARP hit). Keep it: the difference is what the
+
   s->t0 = week4_now();             // only this thread reads t0, and only after done is set
   if (week4_ip_send(buf, (uint32)dst, IPPROTO_ICMP, n) < 0) {
     acquire(&icmp_lock);
@@ -294,9 +305,9 @@ sys_ping(void)
       return -2;
     }
     sleep_prepare(s);              // register on chan while still holding icmp_lock
-    release(&icmp_lock);
+    release(&icmp_lock);           // a wakeup() after this point is not lost: we are registered
     sleep();
-    acquire(&icmp_lock);         // atomically releases icmp_lock; no lost wakeup
+    acquire(&icmp_lock);           // re-take the lock before re-checking done/timedout
   }
   done = s->done;
   delta = s->t1 - s->t0;
@@ -322,9 +333,9 @@ week4_ip_dump_stats(void)
 {
   struct week4_stats *s = &week4_stats;
 
-  printk("week4: ip ok=%d short=%d hdr=%d cksum=%d frag=%d notus=%d addr=%d unsup=%d\n",
+  printk("week4: ip ok=%d short=%d hdr=%d cksum=%d frag=%d ttl=%d notus=%d addr=%d unsup=%d\n",
          s->ip_ok, s->ip_drop_short, s->ip_drop_hdr, s->ip_drop_cksum, s->ip_drop_frag,
-         s->ip_drop_notus, s->ip_drop_addr, s->ip_unsup_proto);
+         s->ip_drop_ttl, s->ip_drop_notus, s->ip_drop_addr, s->ip_unsup_proto);
   printk("week4: icmp req=%d reply_tx=%d drop=%d | ping tx=%d rx=%d timeout=%d unmatched=%d\n",
          s->icmp_echo_req, s->icmp_echo_reply_tx, s->icmp_drop, s->ping_tx, s->ping_rx,
          s->ping_timeout, s->ping_unmatched);

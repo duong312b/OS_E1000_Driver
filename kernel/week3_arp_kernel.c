@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "defs.h"
 #include "net.h"
+#include "week4_ip.h"
 
 extern uint ticks;
 
@@ -84,7 +85,11 @@ week3_arp_send(uint32 ip, uint8 *frame, int len)
     release(&week3_arp_lock);
     for (i = 0; i < ETHADDR_LEN; i++)
       frame[i] = mac[i];
-    return week2_net_tx(frame, len);
+    // week2_net_tx() frees the frame even when the NIC fails, so the frame is consumed either
+    // way. Return 0 ("stack owns it"); a TX failure is already counted (week4_tx_err) and logged.
+    // Returning its error here made callers kfree() a frame that was already freed.
+    week2_net_tx(frame, len);
+    return 0;
   }
   if (r == WEEK3_ARP_MISS)
     started = week3_arp_begin(&week3_arpc, ip, ticks, &drop);
@@ -124,8 +129,8 @@ week3_arp_selftest(void)
   uint8 *f;
   int i;
 
-  // Gateway cua QEMU user-mode networking.
-  gateway_ip = MAKE_IP_ADDR(10, 0, 2, 2);
+  // Gateway cua mang hien tai: QEMU user-mode (10.0.2.2) hoac host tap0 (-DNET_TAP).
+  gateway_ip = WEEK4_GATEWAY;
 
   f = kalloc();
   if (f == 0) {
@@ -142,8 +147,8 @@ week3_arp_selftest(void)
     f[ETHADDR_LEN + i] = week2_my_mac[i];
 
   // EtherType = IPv4.
-  f[12] = 0x08;
-  f[13] = 0x00;
+  f[12] = 0x88;
+  f[13] = 0xb5;
 
   // Payload danh dau de kiem tra.
   f[14] = 0xde;

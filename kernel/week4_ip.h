@@ -1,18 +1,19 @@
 #ifndef WEEK4_IP_H
 #define WEEK4_IP_H
 
-// Week 4 (role B): IPv4 + ICMP echo.
-// Include "types.h" and "net.h" BEFORE this header.
-
 #define WEEK4_IP_PAYLOAD_OFF  (ETH_HDR_LEN + IP_HDR_MIN_LEN)   // 34
 #define WEEK4_IP_MAX_PAYLOAD  (ETH_MTU - IP_HDR_MIN_LEN)       // 1480
 #define WEEK4_ICMP_MAX_DATA   (WEEK4_IP_MAX_PAYLOAD - ICMP_HDR_LEN) // 1472
 #define WEEK4_IP_TTL          64
 
 // Network config. QEMU user-mode (slirp) by default, TAP with -DNET_TAP.
+// WEEK4_MYIP is the single source of truth for xv6's own address (net.c: week2_my_ip).
+// TAP: host side of tap0 is 192.168.100.1/24, xv6 is 192.168.100.2.
 #ifdef NET_TAP
+#define WEEK4_MYIP     MAKE_IP_ADDR(192, 168, 100, 2)
 #define WEEK4_GATEWAY  MAKE_IP_ADDR(192, 168, 100, 1)
 #else
+#define WEEK4_MYIP     MAKE_IP_ADDR(10, 0, 2, 15)
 #define WEEK4_GATEWAY  MAKE_IP_ADDR(10, 0, 2, 2)
 #endif
 #define WEEK4_NETMASK  MAKE_IP_ADDR(255, 255, 255, 0)
@@ -77,6 +78,7 @@ int    week4_echo_check(const uint8 *d, int n);
 // ---- statistics (updated with atomics) ----
 struct week4_stats {
   uint32 ip_ok, ip_drop_short, ip_drop_hdr, ip_drop_cksum, ip_drop_frag;
+  uint32 ip_drop_ttl;         // ttl == 0 (split out of ip_drop_hdr in week 5)
   uint32 ip_drop_notus, ip_drop_addr, ip_unsup_proto;
   uint32 icmp_echo_req, icmp_echo_reply_tx, icmp_drop;
   uint32 ping_tx, ping_rx, ping_timeout, ping_unmatched, tx_nomem;

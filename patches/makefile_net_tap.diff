@@ -1,0 +1,35 @@
+--- a/Makefile
++++ b/Makefile
+@@ -179,7 +179,7 @@
+ 
+ clean: 
+ 	rm -f *.tex *.dvi *.idx *.aux *.log *.ind *.ilg \
+-	*/*.o */*.d */*.asm */*.sym \
++	*/*.o */*.d */*.asm */*.sym .net-* \
+ 	$K/kernel fs.img \
+ 	mkfs/mkfs .gdbinit \
+         $U/usys.S \
+@@ -206,12 +206,23 @@
+ NET ?= user
+ FWDPORT ?= 26000
+ ifeq ($(NET),tap)
++# xv6 takes 192.168.100.2 / gateway 192.168.100.1 (kernel/week4_ip.h, WEEK4_MYIP)
++CFLAGS += -DNET_TAP
+ QEMUOPTS += -netdev tap,id=net0,ifname=tap0,script=no,downscript=no
+ else
+ QEMUOPTS += -netdev user,id=net0,hostfwd=udp::$(FWDPORT)-:2000
+ endif
+ QEMUOPTS += -object filter-dump,id=f0,netdev=net0,file=packets.pcap
+ QEMUOPTS += -device e1000,netdev=net0,bus=pcie.0
++
++# make only tracks timestamps, not CFLAGS: rebuild the kernel objects when NET changes
++# (otherwise a NET=tap build silently reuses objects compiled for NET=user, and vice versa).
++NETSTAMP = .net-$(NET)
++$(NETSTAMP):
++	@rm -f .net-*
++	@touch $@
++$(OBJS): $(NETSTAMP)
++
+ qemu: check-qemu-version $K/kernel fs.img
+ 	$(QEMU) $(QEMUOPTS)
+ 

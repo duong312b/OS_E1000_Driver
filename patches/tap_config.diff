@@ -1,0 +1,32 @@
+--- a/kernel/net.c
++++ b/kernel/net.c
+@@ -31,7 +31,7 @@
+ }
+ 
+ uint8  week2_my_mac[ETHADDR_LEN] = {0x52, 0x54, 0x00, 0x12, 0x34, 0x56};
+-uint32 week2_my_ip = MAKE_IP_ADDR(10, 0, 2, 15);
++uint32 week2_my_ip = WEEK4_MYIP;   // 10.0.2.15 (slirp) or 192.168.100.2 (-DNET_TAP)
+ 
+ uint32 week2_rx_arp;
+ uint32 week2_rx_ip;
+--- a/kernel/week3_arp_kernel.c
++++ b/kernel/week3_arp_kernel.c
+@@ -5,6 +5,7 @@
+ #include "spinlock.h"
+ #include "defs.h"
+ #include "net.h"
++#include "week4_ip.h"
+ 
+ extern uint ticks;
+ 
+@@ -124,8 +125,8 @@
+   uint8 *f;
+   int i;
+ 
+-  // Gateway cua QEMU user-mode networking.
+-  gateway_ip = MAKE_IP_ADDR(10, 0, 2, 2);
++  // Gateway cua mang hien tai: QEMU user-mode (10.0.2.2) hoac host tap0 (-DNET_TAP).
++  gateway_ip = WEEK4_GATEWAY;
+ 
+   f = kalloc();
+   if (f == 0) {

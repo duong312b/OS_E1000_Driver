@@ -1,0 +1,15 @@
+--- a/kernel/week3_arp_kernel.c
++++ b/kernel/week3_arp_kernel.c
+@@ -84,7 +84,11 @@
+     release(&week3_arp_lock);
+     for (i = 0; i < ETHADDR_LEN; i++)
+       frame[i] = mac[i];
+-    return week2_net_tx(frame, len);
++    // week2_net_tx() frees the frame even when the NIC fails, so the frame is consumed either
++    // way. Return 0 ("stack owns it"); a TX failure is already counted (week4_tx_err) and logged.
++    // Returning its error here made callers kfree() a frame that was already freed.
++    week2_net_tx(frame, len);
++    return 0;
+   }
+   if (r == WEEK3_ARP_MISS)
+     started = week3_arp_begin(&week3_arpc, ip, ticks, &drop);

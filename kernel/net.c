@@ -31,7 +31,7 @@ in_cksum(const void *buf, int len)
 }
 
 uint8  week2_my_mac[ETHADDR_LEN] = {0x52, 0x54, 0x00, 0x12, 0x34, 0x56};
-uint32 week2_my_ip = MAKE_IP_ADDR(10, 0, 2, 15);
+uint32 week2_my_ip = WEEK4_MYIP;   // 10.0.2.15 (slirp) or 192.168.100.2 (-DNET_TAP)
 
 uint32 week2_rx_arp;
 uint32 week2_rx_ip;
