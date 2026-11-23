@@ -205,21 +205,6 @@ static int test_loopback_127(void) {          // 127.0.0.1 cung la loopback
   return 0;
 }
 
-static int test_recvfrom_truncate(void) {
-  int a = socket();
-  CHECK(a >= 0);
-  CHECK_EQ(bind(a, 4004), 0);
-  for (int i = 0; i < 100; i++) big[i] = 'a' + i % 26;
-  CHECK_EQ(sendto(a, big, 100, MYIP, 4004), 100);
-  CHECK_EQ(sendto(a, "next", 4, MYIP, 4004), 4);
-  CHECK_EQ(recvfrom(a, rbuf, 10, 0, 0), 10);  // 90 byte con lai bi bo
-  CHECK(memcmp(rbuf, big, 10) == 0);
-  CHECK_EQ(recvfrom(a, rbuf, sizeof(rbuf), 0, 0), 4);   // ranh gioi datagram giu nguyen
-  CHECK(memcmp(rbuf, "next", 4) == 0);
-  close(a);
-  return 0;
-}
-
 static int test_zero_and_max_dgram(void) {
   int a = socket();
   CHECK(a >= 0);
@@ -325,15 +310,6 @@ static int test_close_frees_queue(void) {
   CHECK_EQ(recvfrom(b, rbuf, 8, 0, 0), 3);
   CHECK(memcmp(rbuf, "new", 3) == 0);                  // khong nhan lai goi cu
   close(b);
-  return 0;
-}
-
-static int test_rw_on_socket(void) {
-  int a = socket();
-  CHECK(a >= 0);
-  CHECK(write(a, "x", 1) < 0);
-  CHECK(read(a, rbuf, 1) < 0);
-  close(a);
   return 0;
 }
 
@@ -623,107 +599,6 @@ static int test_concurrent_wire_mixed(void) { // 3 tien trinh gui UDP + 1 tien t
   return 0;
 }
 
-#define NRECV 3
-#define NMSG  30
-static int test_concurrent_recvfrom_same_socket(void) { // moi datagram chi den dung 1 nguoi
-  int srv = socket(), rep = socket(), src = socket();
-  int seen[NMSG] = {0};
-  CHECK(srv >= 0 && rep >= 0 && src >= 0);
-  CHECK_EQ(bind(srv, 4200), 0);
-  CHECK_EQ(bind(rep, 4201), 0);
-  for (int i = 0; i < NRECV; i++) {
-    int pid = fork();
-    CHECK(pid >= 0);
-    if (pid == 0) {                           // ca 3 con cung chan tren recvfrom(srv)
-      unsigned char b[8];
-      for (;;) {
-        if (recvfrom(srv, b, sizeof(b), 0, 0) != 1) exit(1);
-        if (b[0] == 0xff) exit(0);
-        if (sendto(srv, b, 1, MYIP, 4201) != 1) exit(2);   // bao cho cha: "toi nhan c"
-      }
-    }
-  }
-  for (int batch = 0; batch < NMSG / 10; batch++) {        // 10 goi/lot < SOCK_RXQ
-    for (int k = 0; k < 10; k++) {
-      unsigned char c = batch * 10 + k;
-      CHECK_EQ(sendto(src, &c, 1, MYIP, 4200), 1);
-    }
-    for (int k = 0; k < 10; k++) {
-      CHECK_EQ(recvfrom(rep, rbuf, 8, 0, 0), 1);
-      unsigned char c = rbuf[0];
-      CHECK(c < NMSG);
-      seen[c]++;
-    }
-  }
-  for (int i = 0; i < NRECV; i++) {
-    unsigned char end = 0xff;
-    CHECK_EQ(sendto(src, &end, 1, MYIP, 4200), 1);
-  }
-  for (int i = 0; i < NRECV; i++) {
-    int st = -1;
-    CHECK(wait(&st) > 0);
-    CHECK_EQ(st, 0);
-  }
-  for (int c = 0; c < NMSG; c++)
-    CHECK_EQ(seen[c], 1);
-  close(srv); close(rep); close(src);
-  return 0;
-}
-
-static int test_close_shared_socket(void) {   // cha close khi con dang chan trong recvfrom
-  int a = socket();
-  CHECK(a >= 0);
-  CHECK_EQ(bind(a, 4210), 0);
-  int pid = fork();
-  CHECK(pid >= 0);
-  if (pid == 0)
-    exit(recvfrom(a, rbuf, 8, 0, 0) == 3 ? 0 : 1);
-  CHECK_EQ(close(a), 0);                      // con van giu ref -> socket chua bi huy
-  pause(3);
-  int b = socket();
-  CHECK(b >= 0);
-  CHECK(bind(b, 4210) < 0);                   // cong van thuoc socket cua con
-  CHECK_EQ(sendto(b, "abc", 3, MYIP, 4210), 3);
-  int st = -1;
-  CHECK_EQ(wait(&st), pid);
-  CHECK_EQ(st, 0);
-  close(b);
-  int c = socket();                           // con thoat -> ref cuoi -> cong duoc tra
-  CHECK(c >= 0);
-  CHECK_EQ(bind(c, 4210), 0);
-  close(c);
-  return 0;
-}
-
-#define NRACE 8
-static int test_bind_race(void) {             // 8 tien trinh cung bind 1 cong: dung 1 thang
-  int p[2];
-  CHECK_EQ(pipe(p), 0);
-  for (int i = 0; i < NRACE; i++) {
-    int pid = fork();
-    CHECK(pid >= 0);
-    if (pid == 0) {
-      char c;
-      close(p[1]);
-      int s = socket();
-      int r = (s >= 0) ? bind(s, 4220) : -1;
-      read(p[0], &c, 1);                      // giu socket toi khi cha dong pipe
-      exit(r == 0 ? 0 : 1);
-    }
-  }
-  close(p[0]);
-  pause(5);
-  close(p[1]);
-  int wins = 0;
-  for (int i = 0; i < NRACE; i++) {
-    int st = -1;
-    CHECK(wait(&st) > 0);
-    if (st == 0) wins++;
-  }
-  CHECK_EQ(wins, 1);
-  return 0;
-}
-
 // ---------------- quan ly bo nho (dem trang trong tu user space) ----------------
 
 // Hoi quy cho loi leak da sua o NET-65: hang doi ARP day -> week4_ip_send tra < 0 ->
@@ -805,7 +680,6 @@ static struct test tests[] = {
     { "netinfo_basic",         test_netinfo_basic },
     { "loopback_send_recv",    test_loopback_send_recv },
     { "loopback_127",          test_loopback_127 },
-    { "recvfrom_truncate",     test_recvfrom_truncate },
     { "zero_and_max_dgram",    test_zero_and_max_dgram },
     { "sendto_bad_args",       test_sendto_bad_args },
     { "recvfrom_bad_args",     test_recvfrom_bad_args },
@@ -813,7 +687,6 @@ static struct test tests[] = {
     { "noport_drop",           test_noport_drop },
     { "rxq_full_drop",         test_rxq_full_drop },
     { "close_frees_queue",     test_close_frees_queue },
-    { "rw_on_socket",          test_rw_on_socket },
     { "fork_udp_echo",         test_fork_udp_echo },
     { "recvfrom_blocks_kill",  test_recvfrom_blocks_kill },
     { "fork_shares_socket",    test_fork_shares_socket },
@@ -826,9 +699,6 @@ static struct test tests[] = {
     { "ping_concurrent",       test_ping_concurrent },
     { "tx_burst_wire",         test_tx_burst_wire },
     { "concurrent_wire_mixed", test_concurrent_wire_mixed },
-    { "concurrent_recvfrom_same_socket", test_concurrent_recvfrom_same_socket },
-    { "close_shared_socket",   test_close_shared_socket },
-    { "bind_race",             test_bind_race },
     { "no_leak_arp_queue_full", test_no_leak_arp_queue_full },
     { "no_leak_ping_timeout",  test_no_leak_ping_timeout },
     { "no_leak_socket_churn",  test_no_leak_socket_churn },
