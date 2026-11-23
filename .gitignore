@@ -14,6 +14,8 @@ user/usys.S
 tests/host/test_net_headers
 tests/host/week2_eth_arp_test
 tests/host/week3_arp_test
+tests/host/week4_ip_test
+tests/host/week4_udp_test
 
 # Python cache
 __pycache__/
@@ -22,6 +24,7 @@ __pycache__/
 # Test run outputs
 tests/logs/
 *.pcap
+.net-user
 
 # Editor / OS junk
 .vscode/

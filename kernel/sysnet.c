@@ -4,14 +4,15 @@
 //   socktable.lock : bao ve s->used, s->lport cua MOI socket (bind, tim theo cong)
 //                    va next_eport.
 //   s->lock        : bao ve hang doi nhan q/head/count cua socket s.
-// Khong giu bat ky khoa nao trong file nay khi goi week3_arp_send / copyin /
+// Khong giu bat ky khoa nao trong file nay khi goi week4_ip_send / copyin /
 // copyout, nen khong co vong khoa voi week3_arp_lock / net_tx_lock.
 //
 // So huu bo nho:
 //   - Moi datagram trong hang doi nam trong 1 trang kalloc (sock_deliver cap,
 //     sys_recvfrom / sockclose giai phong).
-//   - Khung TX: sys_sendto kalloc, sau do giao han cho week3_arp_send
-//     (gui ngay + kfree, hoac xep hang ARP). Loopback: giai phong ngay.
+//   - Khung TX: sys_sendto cap bang week4_ip_alloc, udp_write ghi header UDP,
+//     roi week4_ip_send (IP + ARP). week4_ip_send == 0: stack so huu frame;
+//     < 0: sys_sendto van so huu va phai kfree. Loopback: giai phong ngay.
 #include "types.h"
 #include "param.h"
 #include "memlayout.h"
@@ -31,8 +32,6 @@
 #define SOCK_RXQ     16          // so datagram toi da xep hang moi socket
 #define EPORT_FIRST  49152       // cong tu cap (ephemeral) khi sendto chua bind
 #define EPORT_LAST   65535
-#define NET_GATEWAY  MAKE_IP_ADDR(10, 0, 2, 2)
-#define NET_MASK     0xffffff00U
 
 struct dgram {
   uint8 *buf;        // trang kalloc chua payload
@@ -57,7 +56,6 @@ static struct {
 } socktable;
 
 static int sock_ready;
-static uint16 ipid;
 static struct spinlock netrx_lock;
 static uint8 rxbuf[E1000_RX_BUF_SIZE];   // [netrx_lock] static: khong dat 2 KB len stack ngat
 
@@ -359,10 +357,9 @@ sys_sendto(void)
   struct proc *p = myproc();
   struct sock *s;
   uint64 ubuf;
-  int n, port, flen, ipi;
-  uint32 dst, nexthop;
-  uint8 *frame;
-  uint16 id;
+  int n, port, ulen, ipi;
+  uint32 dst;
+  uint8 *frame, *udp;
 
   if (argsock(0, 0, &s) < 0)
     return -1;
@@ -378,32 +375,30 @@ sys_sendto(void)
   if (sockautobind(s) < 0)
     return -1;
 
-  if ((frame = kalloc()) == 0)
+  // week4_ip_alloc: trang kalloc da xoa, udp = frame + 34 (cho header IP de tang IP ghi).
+  if ((frame = week4_ip_alloc(&udp)) == 0)
     return -1;
-  if (n > 0 && copyin(p->pagetable, p->sz, (char *)frame + UDP_FRAME_HDR, ubuf, n) < 0) {
+  if (n > 0 && copyin(p->pagetable, p->sz, (char *)udp + UDP_HDR_LEN, ubuf, n) < 0) {
     kfree(frame);
     return -1;
   }
 
   // Loopback: gui cho chinh minh thi khong ra day, dua thang vao hang doi.
   if (dst == week2_my_ip || (dst >> 24) == 127) {
-    sock_deliver(week2_my_ip, s->lport, port, frame + UDP_FRAME_HDR, n);
+    sock_deliver(week2_my_ip, s->lport, port, udp + UDP_HDR_LEN, n);
     kfree(frame);
     __sync_fetch_and_add(&udp_tx_cnt, 1);
     return n;
   }
 
-  id = __sync_fetch_and_add(&ipid, 1);
-  flen = udp_build(frame, PGSIZE, week2_my_mac, week2_my_ip, dst,
-                   s->lport, port, n, id);
-  if (flen < 0) {
+  ulen = udp_write(udp, week2_my_ip, dst, s->lport, port, n);
+  // week4_ip_send: dung header Ethernet/IPv4, chon next hop, giao cho ARP.
+  //   0  -> stack so huu frame (gui + kfree, hoac nam trong hang doi ARP)
+  //   <0 -> frame van cua ta (vd. hang doi ARP day): phai kfree, neu khong se leak.
+  if (ulen < 0 || week4_ip_send(frame, dst, IPPROTO_UDP, ulen) < 0) {
     kfree(frame);
     return -1;
   }
-  nexthop = ((dst & NET_MASK) == (week2_my_ip & NET_MASK)) ? dst : NET_GATEWAY;
-  // week3_arp_send so huu frame tu day (gui + kfree, hoac xep hang ARP).
-  if (week3_arp_send(nexthop, frame, flen) < 0)
-    return -1;
   __sync_fetch_and_add(&udp_tx_cnt, 1);
   return n;
 }
