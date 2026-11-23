@@ -215,9 +215,8 @@ struct udp_info {
   int dlen;
 };
 
-int udp_build(uint8 *frame, int framemax, const uint8 *srcmac,
-              uint32 srcip, uint32 dstip, uint16 sport, uint16 dport,
-              int plen, uint16 ipid);
+// Chi ghi header UDP + checksum (payload da o udp + 8). Tra ve 8 + plen, hoac -1.
+int udp_write(uint8 *udp, uint32 srcip, uint32 dstip, uint16 sport, uint16 dport, int plen);
 int udp_parse(const uint8 *frame, int len, uint32 myip, struct udp_info *out);
 
 // net_rx goi hook nay cho moi khung IPv4 (sysnet.c gan = udp_ip_rx).

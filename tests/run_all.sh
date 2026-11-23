@@ -2,7 +2,7 @@
 # Biến môi trường:
 #   CPUS_LIST  danh sách số CPU cần thử        (mặc định "1 4")
 #   REPEAT     số lần lặp mỗi cấu hình         (mặc định 1; đề bài yêu cầu >= 10 ở bản cuối)
-#   BOOT_TIMEOUT / TEST_TIMEOUT  giây          (mặc định 60 / 120)
+#   BOOT_TIMEOUT / TEST_TIMEOUT / LIVE_TIMEOUT  giây  (mặc định 60 / 240 / 180)
 #   FWDPORT    cổng host chuyển vào xv6        (mặc định 26000)
 # Mã thoát: 0 nếu mọi lần chạy đều không có FAIL và nettests chạy tới "NETTESTS DONE".
 MODE=${MODE:-all}
@@ -13,7 +13,8 @@ cd "$(dirname "$0")/.."
 CPUS_LIST=${CPUS_LIST:-"1 4"}
 REPEAT=${REPEAT:-1}
 BOOT_TIMEOUT=${BOOT_TIMEOUT:-60}
-TEST_TIMEOUT=${TEST_TIMEOUT:-120}
+TEST_TIMEOUT=${TEST_TIMEOUT:-240}
+LIVE_TIMEOUT=${LIVE_TIMEOUT:-180}   # giay toi da cho test live phia host truoc khi chay nettests
 FWDPORT=${FWDPORT:-26000}
 LOGDIR=tests/logs
 mkdir -p "$LOGDIR"
@@ -35,7 +36,8 @@ run_live_host_tests() {
 run_xv6_tests() {   # $1 = cpus, $2 = lần thứ mấy
   local cpus=$1 iter=$2
   local log="$LOGDIR/xv6-cpus${cpus}-run${iter}.log"
-  : > "$log"
+  local flag="$LOGDIR/.live-done"
+  : > "$log"; rm -f "$flag"
 
   # setsid: để có thể giết cả nhóm tiến trình (make + qemu) khi xong/timeout.
   setsid bash -c "
@@ -44,7 +46,11 @@ run_xv6_tests() {   # $1 = cpus, $2 = lần thứ mấy
       until grep -q 'init: starting sh' '$log' 2>/dev/null; do
         sleep 0.2; t=\$((t+1)); [ \$t -gt $((BOOT_TIMEOUT*5)) ] && exit 0
       done
-      sleep 0.5; echo 'udp_echo 2000 0 -q &'; sleep 1; echo nettests; sleep $TEST_TIMEOUT
+      sleep 0.5; echo 'udp_echo 2000 0 -q &'
+      # nettests chi bat dau khi test live phia host da xong: cac test bo nho cua nettests
+      # vat can bo nho (countfree), chay song song voi flood tu host se lam ca hai sai.
+      t=0; until [ -e '$flag' ]; do sleep 0.2; t=\$((t+1)); [ \$t -gt $((LIVE_TIMEOUT*5)) ] && break; done
+      sleep 0.5; echo nettests; sleep $TEST_TIMEOUT
     ) | make qemu CPUS=$cpus FWDPORT=$FWDPORT
   " > "$log" 2>&1 &
   local pid=$!
@@ -56,6 +62,7 @@ run_xv6_tests() {   # $1 = cpus, $2 = lần thứ mấy
   done
   live_bad=0
   run_live_host_tests
+  touch "$flag"
 
   local waited=0 limit=$(( (BOOT_TIMEOUT + TEST_TIMEOUT) * 2 ))
   while ! grep -q 'NETTESTS DONE' "$log" 2>/dev/null; do

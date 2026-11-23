@@ -1,6 +1,6 @@
 CC ?= gcc
 CFLAGS = -Wall -Wextra -Werror -O1 -I../../kernel -I.
-TESTS = test_net_headers week3_arp_test week4_ip_test
+TESTS = test_net_headers week3_arp_test week4_ip_test week4_udp_test
 
 test: $(TESTS)
 	@for t in $(TESTS); do echo "== $$t =="; ./$$t || exit 1; done
@@ -16,6 +16,9 @@ week3_arp_test: week3_arp_test.c ../../kernel/net.c ../../kernel/week3_arp.c ../
 
 week4_ip_test: week4_ip_test.c ../../kernel/net.c ../../kernel/week4_ip.c ../../kernel/net.h ../../kernel/week4_ip.h vectors.h
 	$(CC) $(CFLAGS) -o $@ week4_ip_test.c ../../kernel/net.c ../../kernel/week4_ip.c
+
+week4_udp_test: week4_udp_test.c ../../kernel/net.c ../../kernel/udp.c ../../kernel/week4_ip.c ../../kernel/net.h ../../kernel/week4_ip.h
+	$(CC) $(CFLAGS) -o $@ week4_udp_test.c ../../kernel/net.c ../../kernel/udp.c ../../kernel/week4_ip.c
 
 # --- week 5 (role B) additions: nothing above this line was changed ---------------------------
 # Same unit tests under AddressSanitizer + UBSan (catches out-of-bounds reads in the parsers).

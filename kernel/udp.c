@@ -23,64 +23,33 @@ udp_cksum(uint32 src, uint32 dst, const uint8 *udp, int ulen)
     return cksum_finish(sum);
 }
 
-// Dong goi khung Ethernet chua goi UDP
-// input: 
-//  - frame: con tro toi bo dem chua khung tin
-//  - framemax: kich thuoc toi da cua bo dem frame
-//  - srcmac: dia chi MAC nguon
-//  - srcip, dstip: IP cua nguon va dich
-//  - sport, dport: port cua nguon va dich
-//  - plen: do dai phan du lieu cua UDP
-//  - ipid: dinh danh goi IP
-// output: tong kich thuoc thuc te cua khung Ethernet sau khi dong goi, -1 neu loi
+// Ghi header UDP (RFC 768) + checksum. Chi lam tang L4: header Ethernet/IPv4
+// do tang IP dung (week4_ip_fill / week4_ip_send), de UDP va ICMP dung chung
+// mot duong TX.
+// input:
+//  - udp: con tro toi dau goi UDP; plen byte payload PHAI nam san o udp + 8
+//  - srcip, dstip: IP nguon/dich (host order) - can cho pseudo-header checksum
+//  - sport, dport: cong nguon/dich (host order)
+//  - plen: do dai payload, 0..UDP_MAX_PAYLOAD
+// output: do dai goi UDP (8 + plen) de truyen cho week4_ip_send, -1 neu loi
 int
-udp_build(uint8 *frame, int framemax, const uint8 *srcmac,
-          uint32 srcip, uint32 dstip, uint16 sport, uint16 dport,
-          int plen, uint16 ipid)
+udp_write(uint8 *udp, uint32 srcip, uint32 dstip, uint16 sport, uint16 dport, int plen)
 {
-  struct eth *e;
-  struct ip *ip;
   struct udp *u;
-  int i, total, flen;
+  int ulen;
 
-  if (frame == 0 || srcmac == 0 || plen < 0 || plen > UDP_MAX_PAYLOAD)
+  if (udp == 0 || plen < 0 || plen > UDP_MAX_PAYLOAD)
     return -1;
-  total = UDP_FRAME_HDR + plen;
-  flen = total < ETH_MIN_FRAME ? ETH_MIN_FRAME : total;
-  if (flen > framemax)
-    return -1;
-  for (i = total; i < flen; i++)
-    frame[i] = 0;
-
-  e = (struct eth *)frame;
-  for (i = 0; i < ETHADDR_LEN; i++) {
-    e->dhost[i] = 0;
-    e->shost[i] = srcmac[i];
-  }
-  e->type = htons(ETHTYPE_IP);
-
-  ip = (struct ip *)(frame + ETH_HDR_LEN);
-  ip->vhl = 0x45;
-  ip->tos = 0;
-  ip->len = htons(IP_HDR_MIN_LEN + UDP_HDR_LEN + plen);
-  ip->id = htons(ipid);
-  ip->off = htons(IP_DF);
-  ip->ttl = 64;
-  ip->proto = IPPROTO_UDP;
-  ip->sum = 0;
-  ip->src = htonl(srcip);
-  ip->dst = htonl(dstip);
-  ip->sum = in_cksum(ip, IP_HDR_MIN_LEN);
-
-  u = (struct udp *)(frame + ETH_HDR_LEN + IP_HDR_MIN_LEN);
+  ulen = UDP_HDR_LEN + plen;
+  u = (struct udp *)udp;
   u->sport = htons(sport);
   u->dport = htons(dport);
-  u->ulen = htons(UDP_HDR_LEN + plen);
+  u->ulen = htons(ulen);
   u->sum = 0;
-  u->sum = udp_cksum(srcip, dstip, (uint8 *)u, UDP_HDR_LEN + plen);
+  u->sum = udp_cksum(srcip, dstip, udp, ulen);
   if (u->sum == 0)            // 0 nghia la "khong co checksum" -> gui 0xffff
     u->sum = 0xffff;
-  return flen;
+  return ulen;
 }
 
 

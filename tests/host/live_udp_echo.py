@@ -69,7 +69,9 @@ try:
 except socket.timeout:
     report("udp_echo_two_clients", False, "timeout")
 
-# 6. Do RTT (thong tin cho phan Measurement, khong PASS/FAIL).
+# 6. Do RTT. RX bang ngat E1000: RTT < 1 ms. Neu ngat hong va chi con net_poll() trong
+#    clockintr (10 Hz) thi RTT ~ 50-100 ms -> test nay bat duoc (ngat phan cung, gian tiep).
+RTT_MAX_MS = float(os.environ.get("RTT_MAX_MS", "20"))
 rtts = []
 for i in range(10):
     t0 = time.time()
@@ -79,6 +81,9 @@ if rtts:
     mean = sum(rtts) / len(rtts)
     sd = (sum((x - mean) ** 2 for x in rtts) / len(rtts)) ** 0.5
     print("INFO: udp echo RTT %d mau: mean=%.1f ms sd=%.1f ms" % (len(rtts), mean, sd))
+report("udp_rtt_interrupt_driven", len(rtts) == 10 and sum(rtts) / len(rtts) < RTT_MAX_MS,
+       "%d/10 mau, mean=%.1f ms >= %.0f ms -> RX khong chay bang ngat?" %
+       (len(rtts), (sum(rtts) / len(rtts)) if rtts else -1, RTT_MAX_MS))
 
 s.close(); s2.close()
 sys.exit(1 if nfail else 0)
